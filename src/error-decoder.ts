@@ -77,18 +77,7 @@ export class ErrorDecoder {
     return returnData
   }
 
-  public async decode(error: unknown | Error): Promise<DecodedError> {
-    if (!(error instanceof Error)) {
-      return unknownErrorResult({
-        data: undefined,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        reason: (error as any).message ?? 'Invalid error',
-      })
-    }
-
-    const targetError = await this.getContractOrTransactionError(error)
-    const returnData = this.getDataFromError(targetError)
-
+  private decodeError(returnData: string, targetError: Error): DecodedError {
     for (const { predicate, handle } of this.errorHandlers) {
       if (predicate(returnData, targetError)) {
         return handle(returnData, { errorInterface: this.errorInterface, error: targetError })
@@ -101,6 +90,26 @@ export class ErrorDecoder {
       reason: (targetError as any)?.message ?? 'Unexpected error',
       name: targetError?.name,
     })
+
+  }
+
+  public decodeReturnData(data: string): DecodedError {
+    return this.decodeError(data, new Error());
+  }
+
+  public async decode(error: unknown | Error): Promise<DecodedError> {
+    if (!(error instanceof Error)) {
+      return unknownErrorResult({
+        data: undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        reason: (error as any).message ?? 'Invalid error',
+      })
+    }
+
+    const targetError = await this.getContractOrTransactionError(error)
+    const returnData = this.getDataFromError(targetError)
+
+    return this.decodeError(returnData, targetError);
   }
 
   public static create(
